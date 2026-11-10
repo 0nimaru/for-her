@@ -4,7 +4,8 @@
   /* ---------------- settings ---------------- */
   const ALLOWED = ["ada", "adela", "adelka", "adys", "adysa"];
   const IG_HANDLE = "and1.sula";
-  const IG_BLOCKED = "https://www.instagram.com/accounts/blocked_accounts/";
+  // Instagram has no deep link to the blocked list; his profile shows an "Unblock" button to whoever blocked him.
+  const IG_PROFILE = "https://www.instagram.com/" + IG_HANDLE + "/";
   const WHATSAPP = "https://wa.me/355697693475";
   const IG_DM = "https://ig.me/m/" + IG_HANDLE;
   const STORE = "postcards-v1";
@@ -42,7 +43,7 @@
     { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media?", mood: "surprised", say: "pretty please?" },
     {
       html: () => `Okay, I want you to find the name <span class="handle">@${IG_HANDLE}</span> and unblock it, and after you do, come back to meee`,
-      mood: "happy", say: "i'll wait here.", next: "Take me there ›", go: IG_BLOCKED,
+      mood: "happy", say: "i'll wait here.", next: "Take me there ›", go: IG_PROFILE,
     },
     { text: "Amazing! But we're not done yet, don't forget to come back to see", mood: "love", say: "you came back!", next: "Open WhatsApp ›", go: WHATSAPP },
     { text: "Before we continue, make sure to check on me each morning, I might have a surprise for you", mood: "wink", say: "every morning ☀️" },
