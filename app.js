@@ -45,6 +45,7 @@
       mood: "happy", say: "i'll wait here.", next: "Take me there ›", go: IG_BLOCKED,
     },
     { text: "Amazing! But we're not done yet, don't forget to come back to see", mood: "love", say: "you came back!", next: "Open WhatsApp ›", go: WHATSAPP },
+    { text: "Before we continue, make sure to check on me each morning, I might have a surprise for you", mood: "wink", say: "every morning ☀️" },
     {
       text: "Now what's most important: he has been waiting for you to actually text him, so do so. Don't be shy, he's your boyfriend after all <3",
       mood: "love", say: "go go go!", next: "Message him ♥", go: IG_DM,
