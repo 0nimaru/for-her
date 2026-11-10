@@ -1,0 +1,26 @@
+{
+  "name": "for-her",
+  "version": "1.0.0",
+  "description": "Static site, no build step. Files: `index.html`, `styles.css`, `app.js`.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "example": "node --env-file=.env.local index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0nimaru/for-her.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/0nimaru/for-her/issues"
+  },
+  "homepage": "https://github.com/0nimaru/for-her#readme",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "ai": "^7.0.169"
+  }
+}
