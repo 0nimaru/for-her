@@ -31,7 +31,7 @@
     { text: "He's been an asshole really, we both know it, but…", mood: "smug", say: "a big one." },
     { text: "He really loves to put a smile on that pretty face and really wants this to work…", mood: "love", say: "he does." },
     { text: "And I think you should consider making up with him", mood: "shy", say: "pleaase?" },
-    { type: "ask", key: "no1", text: "What do you say? To be honest, you have one choice here hehe", mood: "surprised", say: "…well?" },
+    { type: "ask", key: "no1", text: "What do you say?", mood: "surprised", say: "…well?" },
     {
       text: (s) => s.no1
         ? "I knew you would agree to it. Don't worry, I won't tell him you said no at first"
@@ -40,7 +40,7 @@
       say: (s) => (s.no1 ? "our secret 🤫" : "told ya."),
     },
     { text: "First things first: in a healthy relationship, no one should ever be blocking another", mood: "neutral", say: "rule #1." },
-    { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media?", mood: "surprised", say: "pretty please?" },
+    { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media? Come back to me again", mood: "surprised", say: "pretty please?" },
     {
       html: () => `Okay, I want you to find the name <span class="handle">@${IG_HANDLE}</span> and unblock it, and after you do, come back to meee`,
       mood: "happy", say: "i'll wait here.", next: "Take me there ›", go: IG_PROFILE,
