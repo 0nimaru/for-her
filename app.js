@@ -73,13 +73,8 @@
     } catch (e) { /* storage unavailable: start fresh */ }
     if (state.step < 0 || state.step >= CARDS.length) state.step = 0;
   }
-  // Lets the diary know who she is (the diary button appears after the name check).
-  function announce() {
-    window.dispatchEvent(new CustomEvent("postcards:name", { detail: state.name || "" }));
-  }
   function save() {
     try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
-    announce();
   }
 
   function esc(t) {
@@ -414,7 +409,6 @@
     if (!confirm("Start over from the beginning?")) return;
     try { localStorage.removeItem(STORE); } catch (e) {}
     state = { step: 0, name: "", no1: false, no2: false };
-    announce();
     flipTo(0);
   });
 
@@ -427,5 +421,4 @@
   buildGarland();
   setupTilt();
   render(state.step);
-  announce();
 })();

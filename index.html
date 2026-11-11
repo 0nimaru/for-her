@@ -11,15 +11,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💌</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&family=Gaegu:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="diary.css" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="For You" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 </head>
 <body>
   <!-- Shared flower artwork -->
@@ -49,11 +42,6 @@
         <stop offset="0" stop-color="#eaa29a" />
         <stop offset="1" stop-color="#b65e57" />
       </radialGradient>
-      <linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#f8dc9a" />
-        <stop offset=".5" stop-color="#d9a84f" />
-        <stop offset="1" stop-color="#b07a2e" />
-      </linearGradient>
       <linearGradient id="gLeaf" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#c3d4b4" />
         <stop offset="1" stop-color="#7f9a72" />
@@ -102,16 +90,6 @@
         <path d="M-26,-26 a34,34 0 0,1 20,-12" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round" />
       </symbol>
 
-      <symbol id="corner" viewBox="0 0 60 60">
-        <g fill="none" stroke="url(#gGold)" stroke-linecap="round">
-          <path d="M4,56 L4,22 Q4,4 22,4 L56,4" stroke-width="2.6" />
-          <path d="M11,50 Q11,11 50,11" stroke-width="1.6" />
-          <path d="M18,18 q8,-2 9,6 q-6,4 -9,-6z" stroke-width="1.4" />
-          <path d="M4,56 q8,-6 3,-12 M56,4 q-6,8 -12,3" stroke-width="1.6" />
-        </g>
-        <circle cx="22" cy="22" r="2.4" fill="url(#gGold)" />
-      </symbol>
-
       <symbol id="leaf" viewBox="-50 -50 100 100">
         <path d="M0,46 C-26,20 -22,-26 0,-46 C22,-26 26,20 0,46Z" fill="url(#gLeaf)" stroke="#6f8a63" stroke-width="1.6" />
         <path d="M0,40 L0,-38 M0,10 L-12,-4 M0,-8 L12,-22 M0,24 L12,10" stroke="#eef3e6" stroke-opacity=".75" stroke-width="2" fill="none" stroke-linecap="round" />
@@ -124,10 +102,6 @@
   <main class="stage">
     <header class="top">
       <div class="progress" aria-hidden="true"><span id="bar"></span></div>
-      <button class="diary-btn" id="diaryBtn" type="button" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2.5" fill="#e7a99f" stroke="#a9645a" stroke-width="1.4"/><rect x="4" y="2.5" width="3.5" height="19" rx="1.5" fill="#c98379"/><path d="M14 9.2c-1.3-1.6-3.8-.6-3.3 1.3.4 1.4 3.3 3.2 3.3 3.2s2.9-1.8 3.3-3.2c.5-1.9-2-2.9-3.3-1.3z" fill="#fff6f2"/></svg>
-        diary
-      </button>
       <button class="restart" id="restart" type="button" aria-label="Start over">↺</button>
     </header>
 
@@ -258,76 +232,6 @@
     </aside>
   </main>
 
-  <!-- ================= Diary ================= -->
-  <div class="diary-stage" id="diary" hidden>
-    <div class="d-petals" id="dPetals" aria-hidden="true"></div>
-    <div class="d-scaler" id="dScaler">
-      <div class="d-top">
-        <button class="d-back" id="dBack" type="button">‹ postcards</button>
-        <span class="d-status" id="dStatus" aria-live="polite"></span>
-      </div>
-
-      <div class="d-tabs" id="dTabs" aria-label="Diary dates"></div>
-
-      <div class="d-book" id="dBook">
-        <div class="d-backcover"></div>
-
-        <div class="d-page" id="dPage">
-          <div class="washi" aria-hidden="true"></div>
-          <div class="p-head"><span class="p-date" id="pDate"></span><span class="p-year" id="pYear"></span></div>
-          <svg class="p-doodle" viewBox="-50 -50 100 100" aria-hidden="true"><use href="#leaf" x="-30" y="-10" width="60" height="60" transform="rotate(-40)" /><use href="#bloom" x="-40" y="-50" width="80" height="80" /></svg>
-          <svg class="p-doodle small" viewBox="-50 -50 100 100" aria-hidden="true"><use href="#blossom" x="-50" y="-50" width="100" height="100" /></svg>
-          <div class="p-lines" aria-hidden="true"></div>
-          <textarea class="ink" id="ink" spellcheck="false" autocapitalize="sentences" placeholder="Dear diary, today…" aria-label="Diary page"></textarea>
-          <textarea class="ink measure" id="inkMeasure" tabindex="-1" aria-hidden="true"></textarea>
-          <div class="p-sent" id="pSent" aria-hidden="true">sent to<br />Andi ♡</div>
-          <div class="p-foot">
-            <div class="p-nav">
-              <button type="button" id="pPrev" aria-label="Previous page">‹</button>
-              <span id="pNum">1 / 1</span>
-              <button type="button" id="pNext" aria-label="Next page">›</button>
-            </div>
-            <button type="button" class="p-share" id="pShare"><span class="tick">✓</span><span class="lbl">share</span></button>
-          </div>
-          <div class="p-curl" aria-hidden="true"></div>
-        </div>
-
-        <div class="d-cover" id="dCover" role="button" tabindex="0" aria-label="Open the diary">
-          <div class="c-front">
-            <div class="c-stitch"></div>
-            <svg class="c-corner tl" viewBox="0 0 60 60"><use href="#corner" width="60" height="60" /></svg>
-            <svg class="c-corner tr" viewBox="0 0 60 60"><use href="#corner" width="60" height="60" /></svg>
-            <svg class="c-corner bl" viewBox="0 0 60 60"><use href="#corner" width="60" height="60" /></svg>
-            <svg class="c-corner br" viewBox="0 0 60 60"><use href="#corner" width="60" height="60" /></svg>
-            <div class="c-wreath" id="cWreath"></div>
-            <div class="c-label">
-              <span class="c-title">Dear Diary</span>
-              <span class="c-name" id="cName"></span>
-              <span class="c-sub">little secrets ♡</span>
-            </div>
-            <div class="c-year" id="cYear"></div>
-          </div>
-          <div class="c-back"></div>
-        </div>
-        <div class="d-strap" aria-hidden="true"><span class="clasp">♥</span></div>
-
-        <svg class="d-scent" id="dScent" viewBox="-40 -160 368 670" aria-hidden="true">
-          <defs>
-            <linearGradient id="scentG" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0" stop-color="#f4a9bb" stop-opacity=".95" />
-              <stop offset=".6" stop-color="#f9cdd8" stop-opacity=".7" />
-              <stop offset="1" stop-color="#fff0f4" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
-
-      <p class="d-hint" id="dHint">tap to open ♡</p>
-    </div>
-  </div>
-
-  <script src="config.js"></script>
   <script src="app.js"></script>
-  <script src="diary.js"></script>
 </body>
 </html>
