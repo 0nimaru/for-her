@@ -22,7 +22,11 @@ self.addEventListener("notificationclick", (event) => {
   const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    if (wins.length) return wins[0].focus();
+    if (wins.length) {
+      await wins[0].focus();
+      wins[0].postMessage({ type: "open", url });   // the page opens the inbox / Andi's panel
+      return;
+    }
     return self.clients.openWindow(url);
   })());
 });

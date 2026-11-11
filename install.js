@@ -55,6 +55,7 @@
     guide.classList.remove("show");
     setTimeout(() => (guide.hidden = true), 300);
   }
+  window.openA2HSGuide = openGuide;   // used by the notification center on iPhone
   $("#a2hsClose").addEventListener("click", closeGuide);
   $("#a2hsDone").addEventListener("click", closeGuide);
   guide.addEventListener("click", (e) => { if (e.target === guide) closeGuide(); });

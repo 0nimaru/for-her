@@ -1,13 +1,22 @@
-// Love notes: Andi sends a push notification to every phone that turned on
-// "love notes" from the home-screen app.
+// Love notes, feelings jar and devices.
 //
-// POST JSON { action, ... }:
-//   vapid        {}                         - public VAPID key for subscribing
-//   subscribe    { subscription, label }    - her phone opts in
-//   unsubscribe  { endpoint }
-//   status       { key? }                   - { claimed, keyOk, devices }
-//   claim        { key }                    - first use only: sets Andi's sender passcode
-//   notify       { key, body }              - send a love note to all subscribed phones
+// Her phone (identified by a random device secret; must be approved by Andi):
+//   register   { secret, label, endpoint? }      -> { approved }
+//   subscribe  { secret, subscription }          her phone gets love-note pushes
+//   inbox      { secret, before?, limit? }       -> { notes } (approved phones only)
+//   feel       { secret, mood?, text?, audio?, mime?, seconds? }  share a feeling with Andi
+//
+// Andi (sender passcode, PBKDF2-hashed, set on first use):
+//   status, claim, notify                        (as before)
+//   andi_subscribe  { key, subscription }        his phone gets "she shared a feeling" pushes
+//   feelings        { key, before? }             -> { feelings }
+//   feeling_audio   { key, id }                  -> { url } short-lived link to a voice memo
+//   feelings_seen   { key }
+//   feeling_delete  { key, id }
+//   devices         { key }                      -> { devices }
+//   device_approve  { key, id } / device_remove { key, id }
+//
+// Feelings she does NOT share never reach this server.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
@@ -24,6 +33,16 @@ const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+const sha256 = async (s: string) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+
+const MOODS: Record<string, string> = {
+  happy: "😊 happy", loved: "🥰 loved", calm: "😌 calm", tired: "😴 tired", sad: "😔 sad",
+  upset: "😤 upset", anxious: "😰 anxious", hug: "🫂 needs a hug", missing: "🥺 missing you",
+};
+const AUDIO_TYPES: Record<string, string> = {
+  "audio/webm": "webm", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/mpeg": "mp3",
+  "audio/aac": "aac", "audio/x-m4a": "m4a", "audio/wav": "wav",
+};
 
 async function getConfig(key: string) {
   const { data } = await db.from("love_config").select("value").eq("key", key).maybeSingle();
@@ -65,15 +84,60 @@ async function keyOk(pass: unknown) {
   return ok;
 }
 
-async function deviceCount() {
-  const { count } = await db.from("love_push_subs").select("endpoint", { count: "exact", head: true });
-  return count ?? 0;
+function uaSummary(ua: string) {
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android"
+    : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "Mac" : "Unknown device";
+  const br = /SamsungBrowser/.test(ua) ? "Samsung Internet" : /EdgA?\//.test(ua) ? "Edge" : /Firefox|FxiOS/.test(ua) ? "Firefox"
+    : /CriOS|Chrome/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : "browser";
+  return `${os} · ${br}`;
 }
+
+type Device = { id: string; label: string | null; approved: boolean };
+async function deviceBySecret(secret: unknown): Promise<Device | null> {
+  if (typeof secret !== "string" || secret.length < 32) return null;
+  const { data } = await db.from("love_devices").select("id, label, approved").eq("secret_hash", await sha256(secret)).maybeSingle();
+  if (data) db.from("love_devices").update({ last_seen: new Date().toISOString() }).eq("id", data.id).then(() => {});
+  return data;
+}
+
+// deno-lint-ignore no-explicit-any
+type Sub = { endpoint: string; subscription: any };
+async function pushTo(subs: Sub[], payload: Record<string, unknown>) {
+  await vapid();
+  let sent = 0;
+  const failures: string[] = [];
+  await Promise.all(subs.map(async (s) => {
+    try {
+      await webpush.sendNotification(s.subscription, JSON.stringify(payload), { TTL: 60 * 60 * 24 * 3, urgency: "high" });
+      sent++;
+    } catch (e) {
+      const code = (e as { statusCode?: number }).statusCode;
+      if (code === 404 || code === 410) await db.from("love_push_subs").delete().eq("endpoint", s.endpoint);
+      failures.push(String(code ?? (e as Error).message).slice(0, 120));
+    }
+  }));
+  return { sent, devices: subs.length, failures };
+}
+// Her phones that may receive love notes: approved devices, plus subscriptions from before devices existed.
+async function herSubs(): Promise<Sub[]> {
+  const { data } = await db.from("love_push_subs").select("endpoint, subscription, device_id, love_devices(approved)").eq("role", "her");
+  // deno-lint-ignore no-explicit-any
+  return (data ?? []).filter((r: any) => !r.device_id || r.love_devices?.approved);
+}
+async function andiSubs(): Promise<Sub[]> {
+  const { data } = await db.from("love_push_subs").select("endpoint, subscription").eq("role", "andi");
+  return data ?? [];
+}
+const validSub = (sub: { endpoint?: string; keys?: { p256dh?: string; auth?: string } } | undefined) =>
+  !!sub?.endpoint && /^https:\/\//.test(sub.endpoint) && !!sub.keys?.p256dh && !!sub.keys?.auth;
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  let body: Record<string, unknown>;
+  // deno-lint-ignore no-explicit-any
+  let body: Record<string, any>;
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
   try {
@@ -81,14 +145,41 @@ Deno.serve(async (req) => {
       case "vapid":
         return json({ publicKey: await vapid() });
 
-      case "subscribe": {
-        const sub = body.subscription as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-        if (!sub?.endpoint || !/^https:\/\//.test(sub.endpoint) || !sub.keys?.p256dh || !sub.keys?.auth) {
-          return json({ error: "bad subscription" }, 400);
-        }
+      /* ---------------- her phone ---------------- */
+      case "register": {
+        if (typeof body.secret !== "string" || body.secret.length < 32) return json({ error: "bad secret" }, 400);
         const label = typeof body.label === "string" ? body.label.slice(0, 40) : null;
-        await db.from("love_push_subs").upsert({ endpoint: sub.endpoint, subscription: sub, label }, { onConflict: "endpoint" });
-        return json({ ok: true });
+        const existing = await deviceBySecret(body.secret);
+        if (existing) {
+          if (label && label !== existing.label) await db.from("love_devices").update({ label }).eq("id", existing.id);
+          return json({ approved: existing.approved });
+        }
+        const { count } = await db.from("love_devices").select("id", { count: "exact", head: true }).eq("approved", false);
+        if ((count ?? 0) >= 20) return json({ error: "too many waiting phones" }, 429);
+        // A phone that already had a love-notes subscription before approvals existed is hers: approve it.
+        let legacy = false;
+        if (typeof body.endpoint === "string") {
+          const { data } = await db.from("love_push_subs").select("endpoint").eq("endpoint", body.endpoint).is("device_id", null).eq("role", "her").maybeSingle();
+          legacy = !!data;
+        }
+        const ua = uaSummary(req.headers.get("user-agent") ?? "");
+        const { data: dev, error } = await db.from("love_devices")
+          .insert({ secret_hash: await sha256(body.secret), label, ua, approved: legacy }).select("id").single();
+        if (error) throw error;
+        if (legacy) await db.from("love_push_subs").update({ device_id: dev.id }).eq("endpoint", body.endpoint);
+        else await pushTo(await andiSubs(), { title: "📱 A phone wants to connect", body: `“${label ?? "?"}” on ${ua}. Open your panel to approve it.`, url: "/?panel=devices", tag: "device" });
+        return json({ approved: legacy });
+      }
+
+      case "subscribe": {
+        const dev = await deviceBySecret(body.secret);
+        if (!dev) return json({ error: "unknown phone" }, 403);
+        if (!validSub(body.subscription)) return json({ error: "bad subscription" }, 400);
+        await db.from("love_push_subs").upsert(
+          { endpoint: body.subscription.endpoint, subscription: body.subscription, label: dev.label, role: "her", device_id: dev.id },
+          { onConflict: "endpoint" },
+        );
+        return json({ ok: true, approved: dev.approved });
       }
 
       case "unsubscribe": {
@@ -96,10 +187,63 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "inbox": {
+        const dev = await deviceBySecret(body.secret);
+        if (!dev) return json({ error: "unknown phone" }, 403);
+        if (!dev.approved) return json({ pending: true, notes: [] });
+        const limit = Math.min(Math.max(Number(body.limit) || 20, 1), 50);
+        let q = db.from("love_notes").select("id, body, sent_at").order("sent_at", { ascending: false }).limit(limit);
+        if (typeof body.before === "string") q = q.lt("sent_at", body.before);
+        const { data } = await q;
+        return json({ notes: data ?? [] });
+      }
+
+      case "feel": {
+        const dev = await deviceBySecret(body.secret);
+        if (!dev) return json({ error: "unknown phone" }, 403);
+        if (!dev.approved) return json({ error: "waiting for Andi to approve this phone", pending: true }, 403);
+        const mood = typeof body.mood === "string" && MOODS[body.mood] ? body.mood : null;
+        const text = typeof body.text === "string" ? body.text.trim().slice(0, 2000) : "";
+        const hasAudio = typeof body.audio === "string" && body.audio.length > 0;
+        if (!text && !hasAudio && !mood) return json({ error: "nothing to share" }, 400);
+
+        const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+        const { count } = await db.from("love_feelings").select("id", { count: "exact", head: true }).eq("device_id", dev.id).gt("created_at", hourAgo);
+        if ((count ?? 0) >= 30) return json({ error: "that's a lot of feelings for one hour, try again soon ♡" }, 429);
+
+        let audio_path: string | null = null, audio_mime: string | null = null, audio_seconds: number | null = null;
+        if (hasAudio) {
+          const mime = String(body.mime || "").split(";")[0].trim();
+          const ext = AUDIO_TYPES[mime];
+          if (!ext) return json({ error: "unsupported audio format" }, 400);
+          const bytes = Uint8Array.from(atob(body.audio), (c) => c.charCodeAt(0));
+          if (bytes.length > 6 * 1024 * 1024) return json({ error: "voice memo too long" }, 413);
+          audio_path = `${dev.id}/${crypto.randomUUID()}.${ext}`;
+          const { error } = await db.storage.from("feelings").upload(audio_path, bytes, { contentType: mime });
+          if (error) throw error;
+          audio_mime = mime;
+          audio_seconds = Math.max(0, Math.min(600, Math.round(Number(body.seconds) || 0)));
+        }
+        await db.from("love_feelings").insert({ device_id: dev.id, author: dev.label, mood, body: text || null, audio_path, audio_mime, audio_seconds });
+
+        const who = dev.label || "She";
+        const parts = [mood ? MOODS[mood] : null, text ? `“${text.replace(/\s+/g, " ").slice(0, 90)}${text.length > 90 ? "…" : ""}”` : null,
+          audio_path ? `🎙️ voice memo${audio_seconds ? ` (${mmss(audio_seconds)})` : ""}` : null].filter(Boolean);
+        await pushTo(await andiSubs(), { title: `💭 ${who} shared a feeling`, body: parts.join(" · "), url: "/?panel=her", tag: "feeling" });
+        return json({ ok: true });
+      }
+
+      /* ---------------- Andi ---------------- */
       case "status": {
         const claimed = !!(await getConfig("sender_key"));
         const ok = body.key ? await keyOk(body.key) : false;
-        return json({ claimed, keyOk: ok, devices: ok ? await deviceCount() : undefined });
+        if (!ok) return json({ claimed, keyOk: false });
+        const [subs, unseen, pending] = await Promise.all([
+          herSubs(),
+          db.from("love_feelings").select("id", { count: "exact", head: true }).is("seen_at", null),
+          db.from("love_devices").select("id", { count: "exact", head: true }).eq("approved", false),
+        ]);
+        return json({ claimed, keyOk: true, devices: subs.length, unseen: unseen.count ?? 0, pending: pending.count ?? 0 });
       }
 
       case "claim": {
@@ -107,33 +251,90 @@ Deno.serve(async (req) => {
         if (typeof pass !== "string" || pass.length < 6) return json({ error: "passcode must be at least 6 characters" }, 400);
         const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
         const value = `${salt}:${await pbkdf2(pass, salt)}`;
-        // insert-only: once claimed, it can't be overwritten from the website
         const { data } = await db.from("love_config").upsert({ key: "sender_key", value }, { onConflict: "key", ignoreDuplicates: true }).select();
         if (!data?.length) return json({ error: "already set" }, 409);
-        return json({ ok: true, devices: await deviceCount() });
+        return json({ ok: true, devices: (await herSubs()).length });
       }
 
       case "notify": {
         if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
         const text = typeof body.body === "string" ? body.body.trim() : "";
         if (!text || text.length > 300) return json({ error: "write 1–300 characters" }, 400);
-        await vapid();
-        const { data: subs } = await db.from("love_push_subs").select("endpoint, subscription");
-        const payload = JSON.stringify({ title: "💌 Andi", body: text, url: "/", tag: "love-" + Date.now() });
-        let sent = 0;
-        const failures: string[] = [];
-        await Promise.all((subs ?? []).map(async (s) => {
-          try {
-            await webpush.sendNotification(s.subscription, payload, { TTL: 60 * 60 * 24 * 3, urgency: "high" });
-            sent++;
-          } catch (e) {
-            const code = (e as { statusCode?: number }).statusCode;
-            if (code === 404 || code === 410) await db.from("love_push_subs").delete().eq("endpoint", s.endpoint);
-            failures.push(String(code ?? (e as Error).message).slice(0, 120));
-          }
-        }));
-        await db.from("love_notes").insert({ body: text, devices: sent });
-        return json({ ok: true, sent, devices: subs?.length ?? 0, failures });
+        const result = await pushTo(await herSubs(), { title: "💌 Andi", body: text, url: "/?inbox", tag: "love-" + Date.now() });
+        await db.from("love_notes").insert({ body: text, devices: result.sent });
+        return json({ ok: true, ...result });
+      }
+
+      case "andi_subscribe": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        if (!validSub(body.subscription)) return json({ error: "bad subscription" }, 400);
+        await db.from("love_push_subs").upsert(
+          { endpoint: body.subscription.endpoint, subscription: body.subscription, label: "Andi", role: "andi", device_id: null },
+          { onConflict: "endpoint" },
+        );
+        return json({ ok: true });
+      }
+
+      case "feelings": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        let q = db.from("love_feelings").select("id, author, mood, body, audio_path, audio_seconds, created_at, seen_at")
+          .order("created_at", { ascending: false }).limit(30);
+        if (typeof body.before === "string") q = q.lt("created_at", body.before);
+        const { data } = await q;
+        return json({
+          feelings: (data ?? []).map((f) => ({
+            id: f.id, author: f.author, mood: f.mood, moodLabel: f.mood ? MOODS[f.mood] : null, body: f.body,
+            audio: !!f.audio_path, seconds: f.audio_seconds, created_at: f.created_at, seen: !!f.seen_at,
+          })),
+        });
+      }
+
+      case "feeling_audio": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        const { data: f } = await db.from("love_feelings").select("audio_path").eq("id", body.id).maybeSingle();
+        if (!f?.audio_path) return json({ error: "not found" }, 404);
+        const { data, error } = await db.storage.from("feelings").createSignedUrl(f.audio_path, 60 * 30);
+        if (error) throw error;
+        return json({ url: data.signedUrl });
+      }
+
+      case "feelings_seen": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        await db.from("love_feelings").update({ seen_at: new Date().toISOString() }).is("seen_at", null);
+        return json({ ok: true });
+      }
+
+      case "feeling_delete": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        const { data: f } = await db.from("love_feelings").select("audio_path").eq("id", body.id).maybeSingle();
+        if (f?.audio_path) await db.storage.from("feelings").remove([f.audio_path]);
+        await db.from("love_feelings").delete().eq("id", body.id);
+        return json({ ok: true });
+      }
+
+      case "devices": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        const { data } = await db.from("love_devices").select("id, label, ua, approved, created_at, last_seen, love_push_subs(endpoint)")
+          .order("created_at", { ascending: false });
+        return json({
+          // deno-lint-ignore no-explicit-any
+          devices: (data ?? []).map((d: any) => ({
+            id: d.id, label: d.label, ua: d.ua, approved: d.approved, created_at: d.created_at, last_seen: d.last_seen,
+            notifications: (d.love_push_subs ?? []).length > 0,
+          })),
+        });
+      }
+
+      case "device_approve": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        await db.from("love_devices").update({ approved: true }).eq("id", body.id);
+        return json({ ok: true });
+      }
+
+      case "device_remove": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        await db.from("love_devices").delete().eq("id", body.id);
+        return json({ ok: true });
       }
 
       default:
