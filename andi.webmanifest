@@ -1,0 +1,16 @@
+{
+  "id": "/andi",
+  "name": "Andi's Mailbox 💌",
+  "short_name": "Mailbox",
+  "description": "Diary pages she chose to share.",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8e8e1",
+  "theme_color": "#f3dcd4",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
