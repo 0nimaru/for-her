@@ -108,6 +108,7 @@
   <main class="stage">
     <header class="top">
       <div class="progress" aria-hidden="true"><span id="bar"></span></div>
+      <button class="bell-btn" id="installBtn" type="button" hidden><span aria-hidden="true">📲</span> add to home</button>
       <button class="bell-btn" id="bellBtn" type="button" hidden><span aria-hidden="true">🔔</span> love notes</button>
       <button class="restart" id="restart" type="button" aria-label="Start over">↺</button>
     </header>
@@ -241,6 +242,21 @@
 
   <div class="love-tip" id="loveTip" hidden></div>
 
+  <!-- "Add to Home Screen" guide (iPhone, and Android browsers without an install prompt) -->
+  <div class="a2hs" id="a2hs" hidden>
+    <div class="a2hs-sheet" role="dialog" aria-modal="true" aria-labelledby="a2hsTitle">
+      <button class="sender-close" id="a2hsClose" type="button" aria-label="Close">✕</button>
+      <img class="a2hs-icon" src="/icons/icon-192.png" alt="" width="64" height="64" />
+      <h2 id="a2hsTitle">Add me to your Home Screen</h2>
+      <p class="a2hs-sub">so I'm always one tap away, and his love notes can reach you ♡</p>
+      <ol class="a2hs-steps" id="a2hsSteps"></ol>
+      <button class="btn a2hs-done" id="a2hsDone" type="button">got it ♡</button>
+    </div>
+    <div class="a2hs-arrow" id="a2hsArrow" aria-hidden="true">
+      <svg viewBox="0 0 40 60"><path d="M20 4 V48 M8 36 L20 52 L32 36" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+
   <!-- Andi's sender panel (opens when the name "onimaru" is entered) -->
   <div class="sender" id="sender" hidden>
     <div class="sender-sheet" role="dialog" aria-modal="true" aria-labelledby="senderTitle">
@@ -265,5 +281,6 @@
 
   <script src="app.js"></script>
   <script src="love.js"></script>
+  <script src="install.js"></script>
 </body>
 </html>

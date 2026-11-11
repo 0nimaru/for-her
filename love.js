@@ -66,7 +66,8 @@
 
   async function refreshBell() {
     if (!herName) { bell.hidden = true; return; }
-    if (!pushSupported || !swOk) { bell.hidden = false; return; }   // will explain "Add to Home Screen"
+    if (isIOS && !standalone) { bell.hidden = true; return; }        // the 📲 add-to-home button comes first
+    if (!pushSupported || !swOk) { bell.hidden = false; return; }
     try {
       const r = await reg;
       const sub = await r.pushManager.getSubscription();
