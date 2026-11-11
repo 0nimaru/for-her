@@ -13,6 +13,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="love.css" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="For You" />
 </head>
 <body>
   <!-- Shared flower artwork -->
@@ -102,6 +108,7 @@
   <main class="stage">
     <header class="top">
       <div class="progress" aria-hidden="true"><span id="bar"></span></div>
+      <button class="bell-btn" id="bellBtn" type="button" hidden><span aria-hidden="true">🔔</span> love notes</button>
       <button class="restart" id="restart" type="button" aria-label="Start over">↺</button>
     </header>
 
@@ -232,6 +239,31 @@
     </aside>
   </main>
 
+  <div class="love-tip" id="loveTip" hidden></div>
+
+  <!-- Andi's sender panel (opens when the name "onimaru" is entered) -->
+  <div class="sender" id="sender" hidden>
+    <div class="sender-sheet" role="dialog" aria-modal="true" aria-labelledby="senderTitle">
+      <button class="sender-close" id="senderClose" type="button" aria-label="Close">✕</button>
+      <h2 id="senderTitle">Hi Andi 💌</h2>
+      <p class="sender-sub" id="senderSub">pick a love note, or write your own</p>
+
+      <div class="sender-key" id="senderKey" hidden>
+        <label for="senderKeyInput" id="senderKeyLabel">Your passcode</label>
+        <input id="senderKeyInput" type="password" autocomplete="current-password" minlength="6" placeholder="6+ characters" />
+        <p class="sender-hint" id="senderKeyHint"></p>
+      </div>
+
+      <div class="notes" id="notes" role="radiogroup" aria-label="Love notes"></div>
+      <textarea class="own" id="ownNote" maxlength="300" rows="3" placeholder="…or write something yourself ♡"></textarea>
+      <div class="own-count" id="ownCount"></div>
+
+      <button class="btn notify" id="notifyBtn" type="button">Notify ♡</button>
+      <p class="sender-status" id="senderStatus" aria-live="polite"></p>
+    </div>
+  </div>
+
   <script src="app.js"></script>
+  <script src="love.js"></script>
 </body>
 </html>

@@ -73,8 +73,13 @@
     } catch (e) { /* storage unavailable: start fresh */ }
     if (state.step < 0 || state.step >= CARDS.length) state.step = 0;
   }
+  // Lets love.js know her name (the "love notes" button appears after the name check).
+  function announce() {
+    window.dispatchEvent(new CustomEvent("postcards:name", { detail: state.name || "" }));
+  }
   function save() {
     try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
+    announce();
   }
 
   function esc(t) {
@@ -172,6 +177,14 @@
       e.preventDefault();
       const raw = input.value;
       if (!raw.trim()) { input.focus(); return; }
+      if (normalizeName(raw) === "onimaru") {
+        input.value = "";
+        input.blur();
+        err.textContent = "";
+        react("wink", "oh, it's you 👀");
+        window.dispatchEvent(new Event("love:sender"));
+        return;
+      }
       if (isHer(raw)) {
         input.blur();
         state.name = prettyName(raw);
@@ -409,11 +422,14 @@
     if (!confirm("Start over from the beginning?")) return;
     try { localStorage.removeItem(STORE); } catch (e) {}
     state = { step: 0, name: "", no1: false, no2: false };
+    announce();
     flipTo(0);
   });
 
   let rt;
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(buildGarland, 150); });
+
+  window.addEventListener("hyena:say", (e) => react(e.detail.mood, e.detail.say));
 
   /* ---------------- go ---------------- */
   load();
