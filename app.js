@@ -40,11 +40,7 @@
       say: (s) => (s.no1 ? "our secret 🤫" : "told ya."),
     },
     { text: "First things first: in a healthy relationship, no one should ever be blocking another", mood: "neutral", say: "rule #1." },
-    { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media? Come back to me again", mood: "surprised", say: "pretty please?" },
-    {
-      html: () => `Okay, I want you to find the name <span class="handle">@${IG_HANDLE}</span> and unblock it, and after you do, come back to meee`,
-      mood: "happy", say: "i'll wait here.", next: "Take me there ›", go: IG_PROFILE,
-    },
+    { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media? Come back to me again", mood: "surprised", say: "pretty please?", go: IG_PROFILE },
     { text: "Amazing! But we're not done yet, don't forget to come back to see", mood: "love", say: "you came back!", next: "Open WhatsApp ›", go: WHATSAPP },
     { text: "Before we continue, make sure to check on me each morning, I might have a surprise for you", mood: "wink", say: "every morning ☀️" },
     {
@@ -146,7 +142,10 @@
 
     if (c.type === "ask") {
       const yes = content.querySelector(".yes"), no = content.querySelector(".no");
-      yes.addEventListener("click", (e) => { hearts(e.clientX, e.clientY); advance(); });
+      yes.addEventListener("click", (e) => {
+        hearts(e.clientX, e.clientY);
+        if (c.go) leaveTo(c.go); else advance();   // card 21: "Yes" goes straight to his profile
+      });
       runaway(no, yes, (n) => {
         state[c.key] = true; save();
         react(n % 3 === 0 ? "smug" : "laugh", ["nope :)", "hehe", "try the other one", "nice try", "i said ONE choice"][n % 5]);
