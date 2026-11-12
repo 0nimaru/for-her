@@ -14,38 +14,10 @@
   // mood: neutral | happy | laugh | sad | love | shy | smug | surprised | wink
   const CARDS = [
     { type: "name" },
-    { html: (s) => `<span class="script">My Dearest ${esc(s.name)},</span>I hope this puts a smile on you`, mood: "happy", say: "hi :)" },
-    { text: "The person that made this is stupid sometimes.", mood: "smug", say: "very." },
-    { text: "You, on the other hand, are so smart and pretty", mood: "love", say: "facts." },
-    { text: "You two have had your ups and downs together", mood: "neutral", say: "true…" },
-    { html: () => `<em>(Mostly ups)</em>`, mood: "happy", say: "mostly!!" },
-    { text: "And on your downs you are both learning about each other", mood: "shy", say: "growing <3" },
-    { text: "He has more to learn of course, but he ain't that bad", mood: "smug", say: "a little bad." },
-    { text: "He's been thinking about you a lot since you met and…", mood: "shy", say: "and…?" },
-    { text: "He sees something beautiful in you and in your relationship", mood: "love", say: "awww" },
-    { text: "To be honest, I also see something beautiful in you two", mood: "love", say: "me too." },
-    { text: "The last one was ugly for sure", mood: "laugh", say: "hehehe" },
-    { text: "Me personally, I think an apology should be in place.", mood: "neutral", say: "mhm." },
-    { text: "Andi told me that he's really trying to make up with you, and…", mood: "neutral", say: "he is." },
-    { text: "This is between me and you….", mood: "wink", say: "psst." },
-    { text: "He's been an asshole really, we both know it, but…", mood: "smug", say: "a big one." },
-    { text: "He really loves to put a smile on that pretty face and really wants this to work…", mood: "love", say: "he does." },
-    { text: "And I think you should consider making up with him", mood: "shy", say: "pleaase?" },
-    { type: "ask", key: "no1", text: "What do you say?", mood: "surprised", say: "…well?" },
     {
-      text: (s) => s.no1
-        ? "I knew you would agree to it. Don't worry, I won't tell him you said no at first"
-        : "I knew you would agree to it.",
-      mood: (s) => (s.no1 ? "wink" : "laugh"),
-      say: (s) => (s.no1 ? "our secret 🤫" : "told ya."),
-    },
-    { text: "First things first: in a healthy relationship, no one should ever be blocking another", mood: "neutral", say: "rule #1." },
-    { type: "ask", key: "no2", text: "Are you willing to unblock him from your social media? Come back to me again", mood: "surprised", say: "pretty please?", go: IG_PROFILE },
-    { text: "Amazing! But we're not done yet, don't forget to come back to see", mood: "love", say: "you came back!", next: "Open WhatsApp ›", go: WHATSAPP },
-    { text: "Before we continue, make sure to check on me each morning, I might have a surprise for you", mood: "wink", say: "every morning ☀️" },
-    {
-      text: "Now what's most important: he has been waiting for you to actually text him, so do so. Don't be shy, he's your boyfriend after all <3",
-      mood: "love", say: "go go go!", next: "Message him ♥", go: IG_DM,
+      type: "final",
+      text: "I see you and I wonder, how can one look so good, sweet and tasty. Keep it up I want to see more of it😌",
+      mood: "love", say: "he's not wrong 😌",
     },
   ];
 
@@ -68,6 +40,7 @@
       if (s && typeof s.step === "number" && s.name) state = Object.assign(state, s);
     } catch (e) { /* storage unavailable: start fresh */ }
     if (state.step < 0 || state.step >= CARDS.length) state.step = 0;
+    if (state.name) state.step = CARDS.length - 1;   // she already said who she is: straight to the message
   }
   // Lets love.js know her name (the "love notes" button appears after the name check).
   function announce() {
@@ -128,9 +101,24 @@
     const c = CARDS[i];
     bar.style.width = `${(i / (CARDS.length - 1)) * 100}%`;
 
+    bar.parentElement.style.visibility = "";
     if (c.type === "name") return renderName();
 
     const body = c.html ? val(c.html) : esc(val(c.text));
+    if (c.type === "final") {
+      bar.parentElement.style.visibility = "hidden";   // one message card: no progress to show
+      content.innerHTML = `${stampHTML(i)}<div class="msg long">${body}</div><div class="countdown" id="countdown" hidden></div>` +
+        `<div class="actions"><button class="btn heart-btn" type="button" aria-label="Send hearts">♡</button></div>`;
+      react(val(c.mood), val(c.say));
+      const lines = ["more hearts!", "♡♡♡", "he'd love that", "hehe", "so sweet"];
+      let n = 0;
+      content.querySelector(".heart-btn").addEventListener("click", (e) => {
+        hearts(e.clientX, e.clientY);
+        react("love", lines[n++ % lines.length]);
+      });
+      window.dispatchEvent(new Event("countdown:mount"));   // love.js fills in the countdown
+      return;
+    }
     let actions;
     if (c.type === "ask") {
       actions = `<button class="btn yes" type="button">Yes ♥</button><button class="btn ghost no" type="button">No</button>`;

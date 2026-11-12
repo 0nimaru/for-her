@@ -283,3 +283,42 @@
   position: fixed; z-index: 200; pointer-events: none; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.9); background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.9), rgba(246,200,214,.35) 60%, transparent 70%);
 }
+
+/* ================= countdown ================= */
+.countdown { margin: -6px 0 16px; animation: rise .7s both .3s; }
+.countdown[hidden] { display: none; }
+.cd-label { font-family: var(--script); font-weight: 700; font-size: 21px; color: var(--rose-d); margin-bottom: 6px; line-height: 1.15; }
+.cd-grid { display: flex; justify-content: center; gap: 6px; }
+.cd-cell {
+  min-width: 50px; padding: 6px 4px 5px; border-radius: 12px;
+  background: linear-gradient(180deg, #fffaf6, #f6e0d8); box-shadow: 0 3px 0 #e6c0b6, inset 0 1px 0 #fff;
+}
+.cd-cell b { display: block; font-family: var(--ui); font-weight: 700; font-size: 22px; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cd-cell small { display: block; margin-top: 2px; font: 600 10px var(--ui); letter-spacing: .4px; text-transform: uppercase; color: var(--ink-soft); }
+.cd-done { font-family: var(--script); font-weight: 700; font-size: 26px; color: #c95d6b; animation: pop .6s cubic-bezier(.3,1.6,.5,1); }
+.countdown.big { margin: 0 0 14px; padding: 14px 10px; border-radius: 18px; text-align: center; background: #fbeae4; }
+.countdown.big .cd-cell { min-width: 62px; }
+.countdown.big .cd-cell b { font-size: 28px; }
+.field-label { display: block; margin: 10px 2px 6px; font: 700 13.5px var(--ui); color: var(--rose-d); }
+.field-label span { font-weight: 500; color: var(--ink-soft); }
+.cd-input {
+  width: 100%; font: 600 16px var(--ui); padding: 11px 12px; border-radius: 14px; color: var(--ink);
+  border: 1.5px solid rgba(201,133,121,.45); background: #fffdfb; outline: none; margin-bottom: 4px;
+  user-select: text; -webkit-user-select: text;
+}
+.cd-input:focus { border-color: var(--rose); }
+[data-pane="timer"] .btn.notify { margin-top: 12px; }
+
+/* the single message card */
+.msg.long { font-size: clamp(21px, 5.9vw, 25px); line-height: 1.25; margin-top: 30px; }
+.heart-btn { font-size: 24px; padding: 10px 26px 12px; }
+@media (max-height: 700px) {
+  .msg.long { font-size: 18px; line-height: 1.22; margin: 40px 0 12px; }
+  .countdown { margin: 0 0 10px; }
+  .cd-label { font-size: 17px; margin-bottom: 4px; }
+  .cd-cell { min-width: 44px; padding: 4px 3px; }
+  .cd-cell b { font-size: 18px; }
+  .cd-cell small { font-size: 9px; }
+  .heart-btn { font-size: 20px; padding: 6px 22px 8px; }
+  .content:has(.msg.long) .actions { min-height: 44px; }
+}

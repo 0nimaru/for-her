@@ -87,6 +87,48 @@
     sheet.addEventListener("click", (e) => { if (e.target === sheet || e.target.closest("[data-close]")) closeSheet(sheet); });
   });
 
+  /* ---------- countdown (shown on her card and in Andi's Timer tab) ---------- */
+  let herCountdown = null, andiCountdown = null;
+  function cdParts(at) {
+    let ms = new Date(at).getTime() - Date.now();
+    if (!(ms > 0)) return null;
+    const d = Math.floor(ms / 86400000); ms -= d * 86400000;
+    const h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    const m = Math.floor(ms / 60000); ms -= m * 60000;
+    return { d, h, m, s: Math.floor(ms / 1000) };
+  }
+  function paintCountdown(box, cd) {
+    if (!box) return;
+    if (!cd) { box.hidden = true; box.dataset.key = ""; return; }
+    box.hidden = false;
+    const p = cdParts(cd.at);
+    const key = cd.at + "|" + cd.label + "|" + (p ? "run" : "done");
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      box.replaceChildren(el("div", "cd-label", "⏳ " + (cd.label || "until something special ♡")));
+      if (p) {
+        const grid = el("div", "cd-grid");
+        for (const [k, name] of [["d", "days"], ["h", "hours"], ["m", "min"], ["s", "sec"]]) {
+          const cell = el("div", "cd-cell");
+          const b = el("b", "", "0");
+          b.dataset.part = k;
+          cell.append(b, el("small", "", name));
+          grid.appendChild(cell);
+        }
+        box.appendChild(grid);
+      } else {
+        box.appendChild(el("div", "cd-done", "🎉 it's time! ♡"));
+      }
+    }
+    if (p) box.querySelectorAll("[data-part]").forEach((b) => { b.textContent = String(p[b.dataset.part]).padStart(2, "0"); });
+  }
+  function tickCountdowns() {
+    paintCountdown(document.getElementById("countdown"), herCountdown);
+    paintCountdown(document.getElementById("andiCountdown"), andiCountdown);
+  }
+  setInterval(tickCountdowns, 1000);
+  window.addEventListener("countdown:mount", tickCountdowns);
+
   /* ---------- push subscription helper ---------- */
   let subscribing = false;
   async function pushSubscription() {
@@ -138,11 +180,16 @@
         const r = await api("register", { secret, label: herName, endpoint: sub ? sub.endpoint : undefined });
         approved = !!r.approved;
         if (sub && Notification.permission === "granted") api("subscribe", { secret, subscription: sub.toJSON() }).catch(() => {});
-        if (approved) await loadInbox(true);
+        if (approved) { loadCountdown(); await loadInbox(true); }
       } catch (e) { /* offline: try again next time */ }
       registering = null;
     })();
     return registering;
+  }
+
+  async function loadCountdown() {
+    try { herCountdown = (await api("countdown", { secret })).countdown; } catch (e) {}
+    tickCountdowns();
   }
 
   /* ----- inbox (notes from Andi) ----- */
@@ -467,7 +514,7 @@
     keyOk = !!s.keyOk;
     if (!keyOk && myKey()) write(KEY_STORE, null);
     paintKeyBox();
-    if (keyOk) { sub.textContent = devicesText(s.devices); counts(s); }
+    if (keyOk) { sub.textContent = devicesText(s.devices); counts(s); andiCountdown = s.countdown || null; paintTimer(); }
     return s;
   }
 
@@ -495,6 +542,7 @@
     if (t !== "send" && !keyOk) { status("Enter your passcode above to see this ♡"); return; }
     if (t === "her") loadFeelings(true);
     if (t === "devices") loadDevices();
+    if (t === "timer") paintTimer();
   }
   document.querySelectorAll(".ptab").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
 
@@ -630,6 +678,46 @@
   }
   feelMore.addEventListener("click", () => loadFeelings(false));
 
+  // ----- timer (countdown for both of you) -----
+  const cdAt = $("#cdAt"), cdLabel = $("#cdLabel"), cdStart = $("#cdStart"), cdStop = $("#cdStop");
+  const localInput = (d) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 16); };
+  function paintTimer() {
+    $("#cdNone").hidden = !!andiCountdown;
+    cdStop.hidden = !andiCountdown;
+    cdStart.textContent = andiCountdown ? "Change countdown ⏳" : "Start countdown ⏳";
+    cdAt.min = localInput(new Date());
+    if (andiCountdown && !cdAt.value) { cdAt.value = localInput(new Date(andiCountdown.at)); cdLabel.value = andiCountdown.label || ""; }
+    tickCountdowns();
+  }
+  cdStart.addEventListener("click", async () => {
+    if (!cdAt.value) { status("Pick a date and time first ♡", "err"); cdAt.focus(); return; }
+    const at = new Date(cdAt.value);            // her phone shows the same moment in her own time zone
+    if (!(at.getTime() > Date.now())) { status("Pick a time in the future ♡", "err"); return; }
+    cdStart.disabled = true;
+    status("starting…");
+    try {
+      const r = await api("countdown_set", { key: myKey(), at: at.toISOString(), label: cdLabel.value.trim() });
+      andiCountdown = r.countdown;
+      paintTimer();
+      status(r.notified ? "Countdown started ⏳ She got a notification ♡" : "Countdown started ⏳ She'll see it on her card ♡", "ok");
+      hearts(...centerOf(cdStart));
+    } catch (e) {
+      status("Couldn't start it: " + e.message, "err");
+    } finally {
+      cdStart.disabled = false;
+    }
+  });
+  cdStop.addEventListener("click", async () => {
+    if (!confirm("Stop the countdown for both of you?")) return;
+    try {
+      await api("countdown_clear", { key: myKey() });
+      andiCountdown = null;
+      cdAt.value = ""; cdLabel.value = "";
+      paintTimer();
+      status("Countdown stopped.");
+    } catch (e) { status("Couldn't stop it: " + e.message, "err"); }
+  });
+
   // ----- phones -----
   async function loadDevices() {
     const list = $("#devList");
@@ -679,7 +767,7 @@
     const u = new URL(href, location.href);
     if (u.searchParams.has("inbox") && herName) openInbox();
     const p = u.searchParams.get("panel");
-    if (p && myKey()) openSender(["send", "her", "devices"].includes(p) ? p : "send");
+    if (p && myKey()) openSender(["send", "her", "timer", "devices"].includes(p) ? p : "send");
     if (u.searchParams.has("inbox") || p) history.replaceState(null, "", location.pathname);
   }
   handleLink(location.href);
@@ -688,5 +776,7 @@
       if (e.data && e.data.type === "open" && e.data.url) handleLink(e.data.url);
     });
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && herName && approved) loadInbox(true).catch(() => {}); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && herName && approved) { loadInbox(true).catch(() => {}); loadCountdown(); }
+  });
 })();

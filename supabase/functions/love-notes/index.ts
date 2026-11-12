@@ -5,6 +5,7 @@
 //   subscribe  { secret, subscription }          her phone gets love-note pushes
 //   inbox      { secret, before?, limit? }       -> { notes } (approved phones only)
 //   feel       { secret, mood?, text?, audio?, mime?, seconds? }  share a feeling with Andi
+//   countdown  { secret }                        -> { countdown: { at, label } | null }
 //
 // Andi (sender passcode, PBKDF2-hashed, set on first use):
 //   status, claim, notify                        (as before)
@@ -15,6 +16,8 @@
 //   feeling_delete  { key, id }
 //   devices         { key }                      -> { devices }
 //   device_approve  { key, id } / device_remove { key, id }
+//   countdown_set   { key, at, label? }          starts a countdown for both of them
+//   countdown_clear { key }
 //
 // Feelings she does NOT share never reach this server.
 import webpush from "npm:web-push@3.6.7";
@@ -131,6 +134,12 @@ async function andiSubs(): Promise<Sub[]> {
 const validSub = (sub: { endpoint?: string; keys?: { p256dh?: string; auth?: string } } | undefined) =>
   !!sub?.endpoint && /^https:\/\//.test(sub.endpoint) && !!sub.keys?.p256dh && !!sub.keys?.auth;
 
+async function getCountdown() {
+  const { data } = await db.from("love_config").select("key, value").in("key", ["countdown_at", "countdown_label"]);
+  const m = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
+  return m.countdown_at ? { at: m.countdown_at, label: m.countdown_label || "" } : null;
+}
+
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 Deno.serve(async (req) => {
@@ -233,6 +242,12 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "countdown": {
+        const dev = await deviceBySecret(body.secret);
+        if (!dev || !dev.approved) return json({ countdown: null, pending: !!dev });
+        return json({ countdown: await getCountdown() });
+      }
+
       /* ---------------- Andi ---------------- */
       case "status": {
         const claimed = !!(await getConfig("sender_key"));
@@ -243,7 +258,7 @@ Deno.serve(async (req) => {
           db.from("love_feelings").select("id", { count: "exact", head: true }).is("seen_at", null),
           db.from("love_devices").select("id", { count: "exact", head: true }).eq("approved", false),
         ]);
-        return json({ claimed, keyOk: true, devices: subs.length, unseen: unseen.count ?? 0, pending: pending.count ?? 0 });
+        return json({ claimed, keyOk: true, devices: subs.length, unseen: unseen.count ?? 0, pending: pending.count ?? 0, countdown: await getCountdown() });
       }
 
       case "claim": {
@@ -334,6 +349,31 @@ Deno.serve(async (req) => {
       case "device_remove": {
         if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
         await db.from("love_devices").delete().eq("id", body.id);
+        return json({ ok: true });
+      }
+
+      case "countdown_set": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        const at = new Date(String(body.at || ""));
+        if (isNaN(at.getTime())) return json({ error: "pick a date and time" }, 400);
+        if (at.getTime() <= Date.now()) return json({ error: "pick a time in the future" }, 400);
+        if (at.getTime() > Date.now() + 5 * 365 * 86400_000) return json({ error: "that's too far away ♡" }, 400);
+        const label = typeof body.label === "string" ? body.label.trim().slice(0, 60) : "";
+        await db.from("love_config").upsert(
+          [{ key: "countdown_at", value: at.toISOString() }, { key: "countdown_label", value: label }],
+          { onConflict: "key" },
+        );
+        const days = Math.ceil((at.getTime() - Date.now()) / 86400_000);
+        const when = days <= 1 ? "less than a day to go" : `${days} days to go`;
+        const result = await pushTo(await herSubs(), {
+          title: "⏳ Andi started a countdown", body: `${label || "Something special is coming"} · ${when} ♡`, url: "/", tag: "countdown",
+        });
+        return json({ ok: true, countdown: { at: at.toISOString(), label }, notified: result.sent });
+      }
+
+      case "countdown_clear": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        await db.from("love_config").delete().in("key", ["countdown_at", "countdown_label"]);
         return json({ ok: true });
       }
 

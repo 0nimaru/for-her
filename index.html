@@ -276,7 +276,8 @@
 
       <div class="ptabs" role="tablist">
         <button class="ptab on" role="tab" data-tab="send" type="button">💌 Send</button>
-        <button class="ptab" role="tab" data-tab="her" type="button">💭 From her <span class="count" id="herCount" hidden></span></button>
+        <button class="ptab" role="tab" data-tab="her" type="button">💭 Her <span class="count" id="herCount" hidden></span></button>
+        <button class="ptab" role="tab" data-tab="timer" type="button">⏳ Timer</button>
         <button class="ptab" role="tab" data-tab="devices" type="button">📱 Phones <span class="count" id="devCount" hidden></span></button>
       </div>
 
@@ -291,6 +292,18 @@
         <div class="banner" id="andiPush" hidden><p id="andiPushText"></p><button class="btn small" id="andiPushBtn" type="button" hidden></button></div>
         <div class="feel-list" id="feelList"></div>
         <button class="btn ghost wide" id="feelMore" type="button" hidden>show more</button>
+      </section>
+
+      <section class="pane" data-pane="timer" hidden>
+        <div class="countdown big" id="andiCountdown" hidden></div>
+        <p class="empty-note" id="cdNone">No countdown running yet.</p>
+        <label class="field-label" for="cdAt">When</label>
+        <input class="cd-input" id="cdAt" type="datetime-local" />
+        <label class="field-label" for="cdLabel">What's it for? <span>(optional)</span></label>
+        <input class="cd-input" id="cdLabel" type="text" maxlength="60" placeholder="until I see you ♡" />
+        <button class="btn notify" id="cdStart" type="button">Start countdown ⏳</button>
+        <button class="btn ghost wide" id="cdStop" type="button" hidden>stop countdown</button>
+        <p class="sender-hint">It shows on her card and here, ticking for both of you. She gets a notification when you start one.</p>
       </section>
 
       <section class="pane" data-pane="devices" hidden>
