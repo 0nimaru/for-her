@@ -275,10 +275,11 @@
       </div>
 
       <div class="ptabs" role="tablist">
-        <button class="ptab on" role="tab" data-tab="send" type="button">💌 Send</button>
-        <button class="ptab" role="tab" data-tab="her" type="button">💭 Her <span class="count" id="herCount" hidden></span></button>
-        <button class="ptab" role="tab" data-tab="timer" type="button">⏳ Timer</button>
-        <button class="ptab" role="tab" data-tab="devices" type="button">📱 Phones <span class="count" id="devCount" hidden></span></button>
+        <button class="ptab on" role="tab" data-tab="send" type="button">💌<small>Send</small></button>
+        <button class="ptab" role="tab" data-tab="her" type="button">💭<small>Her</small><span class="count" id="herCount" hidden></span></button>
+        <button class="ptab" role="tab" data-tab="cards" type="button">🃏<small>Cards</small></button>
+        <button class="ptab" role="tab" data-tab="timer" type="button">⏳<small>Timer</small></button>
+        <button class="ptab" role="tab" data-tab="devices" type="button">📱<small>Phones</small><span class="count" id="devCount" hidden></span></button>
       </div>
 
       <section class="pane" data-pane="send">
@@ -292,6 +293,18 @@
         <div class="banner" id="andiPush" hidden><p id="andiPushText"></p><button class="btn small" id="andiPushBtn" type="button" hidden></button></div>
         <div class="feel-list" id="feelList"></div>
         <button class="btn ghost wide" id="feelMore" type="button" hidden>show more</button>
+      </section>
+
+      <section class="pane" data-pane="cards" hidden>
+        <p class="sender-hint">The cards she taps through after her name. The last one has the ♡ and the countdown.</p>
+        <div class="card-edit-list" id="cardList"></div>
+        <button class="btn ghost wide" id="cardAdd" type="button">+ add a card</button>
+        <label class="share-tick">
+          <input type="checkbox" id="cardNotify" checked />
+          <span class="tick-box" aria-hidden="true">✓</span>
+          <span class="tick-text"><b>Let her know</b><small>she gets a notification that there's something new</small></span>
+        </label>
+        <button class="btn notify" id="cardSave" type="button">Save cards ♡</button>
       </section>
 
       <section class="pane" data-pane="timer" hidden>

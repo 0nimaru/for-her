@@ -6,6 +6,7 @@
 //   inbox      { secret, before?, limit? }       -> { notes } (approved phones only)
 //   feel       { secret, mood?, text?, audio?, mime?, seconds? }  share a feeling with Andi
 //   countdown  { secret }                        -> { countdown: { at, label } | null }
+//   cards      { secret }                        -> { cards: string[] | null } (Andi's card texts)
 //
 // Andi (sender passcode, PBKDF2-hashed, set on first use):
 //   status, claim, notify                        (as before)
@@ -18,6 +19,8 @@
 //   device_approve  { key, id } / device_remove { key, id }
 //   countdown_set   { key, at, label? }          starts a countdown for both of them
 //   countdown_clear { key }
+//   cards_get       { key }                      -> { cards }
+//   cards_set       { key, cards: string[], notify? }  replace the cards she taps through
 //
 // Feelings she does NOT share never reach this server.
 import webpush from "npm:web-push@3.6.7";
@@ -140,6 +143,11 @@ async function getCountdown() {
   return m.countdown_at ? { at: m.countdown_at, label: m.countdown_label || "" } : null;
 }
 
+async function getCards(): Promise<string[] | null> {
+  const raw = await getConfig("cards");
+  try { const v = raw ? JSON.parse(raw) : null; return Array.isArray(v) ? v : null; } catch { return null; }
+}
+
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 Deno.serve(async (req) => {
@@ -246,6 +254,12 @@ Deno.serve(async (req) => {
         const dev = await deviceBySecret(body.secret);
         if (!dev || !dev.approved) return json({ countdown: null, pending: !!dev });
         return json({ countdown: await getCountdown() });
+      }
+
+      case "cards": {
+        const dev = await deviceBySecret(body.secret);
+        if (!dev || !dev.approved) return json({ cards: null, pending: !!dev });
+        return json({ cards: await getCards() });
       }
 
       /* ---------------- Andi ---------------- */
@@ -375,6 +389,26 @@ Deno.serve(async (req) => {
         if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
         await db.from("love_config").delete().in("key", ["countdown_at", "countdown_label"]);
         return json({ ok: true });
+      }
+
+      case "cards_get": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        return json({ cards: await getCards() });
+      }
+
+      case "cards_set": {
+        if (!(await keyOk(body.key))) return json({ error: "wrong passcode" }, 403);
+        if (!Array.isArray(body.cards)) return json({ error: "bad cards" }, 400);
+        const cards = body.cards.map((t: unknown) => (typeof t === "string" ? t.trim() : "")).filter(Boolean);
+        if (!cards.length) return json({ error: "keep at least one card ♡" }, 400);
+        if (cards.length > 30) return json({ error: "30 cards at most" }, 400);
+        if (cards.some((t: string) => t.length > 500)) return json({ error: "each card can have up to 500 characters" }, 400);
+        await db.from("love_config").upsert({ key: "cards", value: JSON.stringify(cards) }, { onConflict: "key" });
+        let notified = 0;
+        if (body.notify) {
+          notified = (await pushTo(await herSubs(), { title: "💌 Andi", body: "He left you something new on your cards ♡", url: "/", tag: "cards" })).sent;
+        }
+        return json({ ok: true, cards, notified });
       }
 
       default:

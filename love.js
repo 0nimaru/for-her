@@ -190,6 +190,13 @@
   async function loadCountdown() {
     try { herCountdown = (await api("countdown", { secret })).countdown; } catch (e) {}
     tickCountdowns();
+    loadCards();
+  }
+  async function loadCards() {
+    try {
+      const { cards } = await api("cards", { secret });
+      if (Array.isArray(cards) && cards.length) window.dispatchEvent(new CustomEvent("cards:update", { detail: cards }));
+    } catch (e) { /* offline: the cached cards stay */ }
   }
 
   /* ----- inbox (notes from Andi) ----- */
@@ -543,6 +550,7 @@
     if (t === "her") loadFeelings(true);
     if (t === "devices") loadDevices();
     if (t === "timer") paintTimer();
+    if (t === "cards") loadCardEditor();
   }
   document.querySelectorAll(".ptab").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
 
@@ -678,6 +686,80 @@
   }
   feelMore.addEventListener("click", () => loadFeelings(false));
 
+  // ----- cards editor -----
+  const cardList = $("#cardList"), cardAdd = $("#cardAdd"), cardSave = $("#cardSave");
+  const MAX_CARDS = 30, MAX_LEN = 500;
+  let cardTexts = [], cardsLoaded = false;
+  async function loadCardEditor() {
+    if (cardsLoaded) return renderCardEditor();
+    cardList.replaceChildren(el("div", "empty-note", "loading…"));
+    try {
+      const { cards } = await api("cards_get", { key: myKey() });
+      cardTexts = Array.isArray(cards) && cards.length ? cards.slice() : (window.DEFAULT_CARDS || [""]).slice();
+      cardsLoaded = true;
+      renderCardEditor();
+    } catch (e) { cardList.replaceChildren(el("div", "empty-note", "Couldn't load the cards right now.")); }
+  }
+  function renderCardEditor(focusIndex) {
+    cardList.innerHTML = "";
+    cardTexts.forEach((text, i) => {
+      const box = el("div", "card-edit" + (i === cardTexts.length - 1 ? " last" : ""));
+      const ta = document.createElement("textarea");
+      ta.maxLength = MAX_LEN;
+      ta.rows = 3;
+      ta.placeholder = "Write something sweet…";
+      ta.value = text;
+      const tools = el("div", "card-tools");
+      const len = el("span", "len", `${text.length} / ${MAX_LEN}`);
+      ta.addEventListener("input", () => { cardTexts[i] = ta.value; len.textContent = `${ta.value.length} / ${MAX_LEN}`; });
+      const btn = (label, aria, disabled, fn) => {
+        const b = el("button", "", label);
+        b.type = "button";
+        b.setAttribute("aria-label", aria);
+        b.disabled = disabled;
+        b.addEventListener("click", fn);
+        return b;
+      };
+      tools.append(
+        len,
+        btn("↑", "Move up", i === 0, () => { [cardTexts[i - 1], cardTexts[i]] = [cardTexts[i], cardTexts[i - 1]]; renderCardEditor(); }),
+        btn("↓", "Move down", i === cardTexts.length - 1, () => { [cardTexts[i + 1], cardTexts[i]] = [cardTexts[i], cardTexts[i + 1]]; renderCardEditor(); }),
+        btn("🗑", "Delete card", cardTexts.length === 1, () => {
+          if (cardTexts[i].trim() && !confirm("Delete this card?")) return;
+          cardTexts.splice(i, 1);
+          renderCardEditor();
+        }),
+      );
+      box.append(ta, tools);
+      cardList.appendChild(box);
+      if (i === focusIndex) setTimeout(() => { ta.focus(); box.scrollIntoView({ block: "center", behavior: "smooth" }); }, 50);
+    });
+    cardAdd.disabled = cardTexts.length >= MAX_CARDS;
+  }
+  cardAdd.addEventListener("click", () => {
+    if (cardTexts.length >= MAX_CARDS) return;
+    cardTexts.push("");
+    renderCardEditor(cardTexts.length - 1);
+  });
+  cardSave.addEventListener("click", async () => {
+    const cards = cardTexts.map((t) => t.trim()).filter(Boolean);
+    if (!cards.length) { status("Write at least one card ♡", "err"); return; }
+    cardSave.disabled = true;
+    status("saving…");
+    try {
+      const r = await api("cards_set", { key: myKey(), cards, notify: $("#cardNotify").checked });
+      cardTexts = r.cards.slice();
+      renderCardEditor();
+      window.dispatchEvent(new CustomEvent("cards:update", { detail: r.cards }));   // this phone shows them too
+      status(`Saved ${r.cards.length} card${r.cards.length > 1 ? "s" : ""} ♡` + (r.notified ? " She got a notification." : ""), "ok");
+      hearts(...centerOf(cardSave));
+    } catch (e) {
+      status("Couldn't save: " + e.message, "err");
+    } finally {
+      cardSave.disabled = false;
+    }
+  });
+
   // ----- timer (countdown for both of you) -----
   const cdAt = $("#cdAt"), cdLabel = $("#cdLabel"), cdStart = $("#cdStart"), cdStop = $("#cdStop");
   const localInput = (d) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 16); };
@@ -767,7 +849,7 @@
     const u = new URL(href, location.href);
     if (u.searchParams.has("inbox") && herName) openInbox();
     const p = u.searchParams.get("panel");
-    if (p && myKey()) openSender(["send", "her", "timer", "devices"].includes(p) ? p : "send");
+    if (p && myKey()) openSender(["send", "her", "cards", "timer", "devices"].includes(p) ? p : "send");
     if (u.searchParams.has("inbox") || p) history.replaceState(null, "", location.pathname);
   }
   handleLink(location.href);

@@ -322,3 +322,40 @@
   .heart-btn { font-size: 20px; padding: 6px 22px 8px; }
   .content:has(.msg.long) .actions { min-height: 44px; }
 }
+
+/* ================= 5 tabs: icon over label ================= */
+.ptabs { border-radius: 18px; gap: 4px; }
+.ptab {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 2px 5px; border-radius: 14px; font-size: 18px; line-height: 1.1;
+}
+.ptab small { font: 700 11px var(--ui); }
+.ptab .count { position: absolute; top: 2px; right: 6px; margin: 0; }
+
+/* ================= card editor ================= */
+.card-edit-list { display: grid; gap: 10px; margin-bottom: 10px; counter-reset: card; }
+.card-edit {
+  position: relative; padding: 10px 10px 8px; border-radius: 16px; background: #fffdfb;
+  border: 1.5px solid rgba(201,133,121,.25); box-shadow: 0 3px 0 rgba(201,133,121,.14);
+  counter-increment: card;
+}
+.card-edit::before {
+  content: "card " counter(card); display: block; margin: 0 0 6px 2px;
+  font: 700 12px var(--ui); color: var(--rose-d); letter-spacing: .3px;
+}
+.card-edit.last::before { content: "card " counter(card) " · last (♡ + countdown)"; }
+.card-edit textarea {
+  width: 100%; resize: vertical; min-height: 74px; font-family: var(--serif); font-weight: 600; font-size: 17px; line-height: 1.3;
+  padding: 9px 11px; border-radius: 12px; border: 1.5px solid rgba(201,133,121,.4); background: #fff; color: var(--ink); outline: none;
+  user-select: text; -webkit-user-select: text;
+}
+.card-edit textarea:focus { border-color: var(--rose); }
+.card-tools { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.card-tools .len { flex: 1; font-size: 11.5px; color: var(--ink-soft); }
+.card-tools button {
+  width: 34px; height: 30px; border: none; border-radius: 10px; cursor: pointer;
+  background: #f6dcd3; color: var(--rose-d); font-size: 15px; box-shadow: 0 2px 0 #e2b5aa;
+}
+.card-tools button:disabled { opacity: .35; cursor: default; }
+[data-pane="cards"] .share-tick { margin-top: 12px; }
+.again { font-size: 20px; padding: 10px 16px 12px; }

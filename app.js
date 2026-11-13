@@ -12,14 +12,19 @@
 
   /* ---------------- the postcards ---------------- */
   // mood: neutral | happy | laugh | sad | love | shy | smug | surprised | wink
-  const CARDS = [
-    { type: "name" },
-    {
-      type: "final",
-      text: "I see you and I wonder, how can one look so good, sweet and tasty. Keep it up I want to see more of it😌",
-      mood: "love", say: "he's not wrong 😌",
-    },
-  ];
+  // The message cards come from Andi's dashboard (love.js sends "cards:update"); this is the fallback.
+  const DEFAULT_CARDS = ["I see you and I wonder, how can one look so good, sweet and tasty. Keep it up I want to see more of it😌"];
+  const CARDS_CACHE = "love-cards";
+  const HYENA = [["love", "♡"], ["happy", "aww"], ["shy", "hehe"], ["wink", "psst"], ["smug", "true."], ["laugh", "hehehe"]];
+  window.DEFAULT_CARDS = DEFAULT_CARDS;
+  function buildCards(texts) {
+    const list = Array.isArray(texts) && texts.some((t) => typeof t === "string" && t.trim()) ? texts.filter((t) => t && t.trim()) : DEFAULT_CARDS;
+    return [{ type: "name" }, ...list.map((text, i) => ({
+      type: i === list.length - 1 ? "final" : "msg",
+      text, mood: HYENA[i % HYENA.length][0], say: list.length === 1 ? "he's not wrong 😌" : HYENA[i % HYENA.length][1],
+    }))];
+  }
+  let CARDS = buildCards((() => { try { return JSON.parse(localStorage.getItem(CARDS_CACHE) || "null"); } catch (e) { return null; } })());
 
   const NO_WORDS = ["No", "are you sure?", "nope", "try again", "hehe", "not this one", "nice try", "🙈", "wrong button", "still no?", "the other one!"];
   const WRONG_SAYS = ["…not you.", "who are you??", "nope.", "hmm, no."];
@@ -40,7 +45,7 @@
       if (s && typeof s.step === "number" && s.name) state = Object.assign(state, s);
     } catch (e) { /* storage unavailable: start fresh */ }
     if (state.step < 0 || state.step >= CARDS.length) state.step = 0;
-    if (state.name) state.step = CARDS.length - 1;   // she already said who she is: straight to the message
+    if (state.name && state.step === 0) state.step = 1;   // she already said who she is: skip the name card
   }
   // Lets love.js know her name (the "love notes" button appears after the name check).
   function announce() {
@@ -95,6 +100,8 @@
     return `<div class="postmark"></div><div class="stamp"><b>♥</b><small>${String(i).padStart(2, "0")}</small></div>`;
   }
 
+  const isLong = (c) => typeof c.text === "string" && c.text.length > 70;
+
   function render(i) {
     current = i;
     document.querySelectorAll(".btn.loose").forEach((b) => b.remove());
@@ -106,9 +113,12 @@
 
     const body = c.html ? val(c.html) : esc(val(c.text));
     if (c.type === "final") {
-      bar.parentElement.style.visibility = "hidden";   // one message card: no progress to show
-      content.innerHTML = `${stampHTML(i)}<div class="msg long">${body}</div><div class="countdown" id="countdown" hidden></div>` +
-        `<div class="actions"><button class="btn heart-btn" type="button" aria-label="Send hearts">♡</button></div>`;
+      bar.parentElement.style.visibility = CARDS.length > 2 ? "" : "hidden";   // one message card: no progress to show
+      const again = CARDS.length > 2 ? `<button class="btn ghost again" type="button" aria-label="Read from the start">↺</button>` : "";
+      content.innerHTML = `${stampHTML(i)}<div class="msg${isLong(c) ? " long" : ""}">${body}</div><div class="countdown" id="countdown" hidden></div>` +
+        `<div class="actions">${again}<button class="btn heart-btn" type="button" aria-label="Send hearts">♡</button></div>`;
+      const ag = content.querySelector(".again");
+      if (ag) ag.addEventListener("click", () => { state.step = 1; save(); flipTo(1); });
       react(val(c.mood), val(c.say));
       const lines = ["more hearts!", "♡♡♡", "he'd love that", "hehe", "so sweet"];
       let n = 0;
@@ -125,7 +135,7 @@
     } else {
       actions = `<button class="btn next" type="button">${esc(c.next || "Next ›")}</button>`;
     }
-    content.innerHTML = `${stampHTML(i)}<div class="msg">${body}</div><div class="actions">${actions}</div>`;
+    content.innerHTML = `${stampHTML(i)}<div class="msg${isLong(c) ? " long" : ""}">${body}</div><div class="actions">${actions}</div>`;
     react(val(c.mood), val(c.say));
 
     if (c.type === "ask") {
@@ -417,6 +427,19 @@
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(buildGarland, 150); });
 
   window.addEventListener("hyena:say", (e) => react(e.detail.mood, e.detail.say));
+
+  // New cards from Andi's dashboard.
+  window.addEventListener("cards:update", (e) => {
+    const texts = e.detail;
+    try { localStorage.setItem(CARDS_CACHE, JSON.stringify(texts)); } catch (err) {}
+    const before = JSON.stringify(CARDS);
+    CARDS = buildCards(texts);
+    if (JSON.stringify(CARDS) === before || current <= 0) return;
+    const i = Math.min(current, CARDS.length - 1);
+    state.step = i;
+    save();
+    render(i);
+  });
 
   /* ---------------- go ---------------- */
   load();
